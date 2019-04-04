@@ -125,11 +125,17 @@ function! s:job_start(cmd, opts) abort
     endif
 
     if l:jobtype == s:job_type_nvimjob
-        let l:job = jobstart(a:cmd, {
+        let l:jobopt = {
             \ 'on_stdout': function('s:on_stdout'),
             \ 'on_stderr': function('s:on_stderr'),
             \ 'on_exit': function('s:on_exit'),
-        \})
+        \ }
+        for key in ['pty', 'width', 'height', 'TERM']
+            if has_key(a:opts, key)
+                let l:jobopt[key] = a:opts[key]
+            endif
+        endfor
+        let l:job = jobstart(a:cmd, l:jobopt)
         if l:job <= 0
             return l:job
         endif
@@ -186,7 +192,8 @@ endfunction
 function! s:job_send(jobid, data) abort
     let l:jobinfo = s:jobs[a:jobid]
     if l:jobinfo.type == s:job_type_nvimjob
-        call jobsend(a:jobid, a:data)
+        call chansend(a:jobid, a:data)
+        call chanclose(a:jobid, 'stdin')
     elseif l:jobinfo.type == s:job_type_vimjob
         if has('patch-8.1.0818')
             call ch_sendraw(l:jobinfo.channel, a:data)
